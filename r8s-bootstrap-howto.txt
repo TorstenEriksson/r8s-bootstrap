@@ -1,0 +1,231 @@
+---------------------
+THE R8S BOOTSTRAP KIT
+---------------------
+
+Narrative and scripts by Torsten Eriksson
+
+This document is a step-by-step description of how you might perform a bootstrap analysis with Mike Sandersons's r8s program et al. The aim is to get an estimate of the level of error in divergence time estimates. It can be complicated and involves several different programs and possibly different computers. Currently, r8s runs on Linux and Mac OS X. 
+
+This document along with the attached scripts and files are intended to help. 
+
+I have used the scripts with success myself, but not made any thorough effort to test them. Don't bug Mike Sanderson for any mistakes that I may have made here. 
+
+(c) Torsten Eriksson 2002-2007
+The scripts are released under the GNU General Public Licence. See http://www.gnu.org/copyleft/gpl.html for information.
+
+-----------------------------------------------------------------------
+   GENERAL STEPS 1-7
+-----------------------------------------------------------------------
+
+----------
+1. GET R8S
+The assumption is that you already have r8s. If not, get it at:
+http://ginger.ucdavis.edu/r8s/
+
+
+---------------------
+2. READ THE R8S MANUAL
+There is plenty of information there and more and more is being added. This document is only intended as additional help. See also: 
+Sanderson MJ, JA Doyle 2001 Sources of error and confidence intervals in estimating the age of angiosperms from rbcL and 18S rDNA data. Amer J Bot 88:1499-1516.
+
+
+----------------------------------
+3. OBTAIN THE TREE YOU WANT TO USE
+Get the tree you want to use, in the normal way. PAUP* or whatever. This should be saved according to the guidelines in the r8s manual: Rooted, with branch lengths, in the altnexus format.
+Note that my scripts assume that this tree is in a separate tree file.
+
+
+--------------------------------------
+4. EXPORT YOUR DATA INTO PHYLIP FORMAT
+In many cases, your data will be in the #NEXUS format used by PAUP* and others. If it is, or if it is in any format other than Phylip, this means that your data file has to be changed into Phylip format. If your data is already in Phylip format you can probably skip this section.
+
+There is an export function in PAUP* which works pretty well. It exports the current data set:
+
+export format=phylip file=infile;
+
+If you give the exported file the name "infile", Phylip will swollow it easily.
+
+One common problem, though, is the taxon labels. The Phylip format uses labels up to 10 characters and the rest (if any) will be truncated. Also, PAUP* will substitute the underscore character "_" with a space in the labels. Beware! This will cause problems if you don't fix it.
+
+Another potential problem with the labels is that if you had labels which were originally longer than 10 characters, the new Phylip dataset will be incompatible with the labels in your tree. I suggest that you check the new labels in the Phylip file and change those in the tree file accordingly.
+
+
+------------------------------
+5. CREATE BOOTSTRAP REPLICATES
+Create a number (usually 100) bootstrap replicates of your data. This can be done using the seqboot program in the Phylip package by Joe Felsenstein (http://evolution.genetics.washington.edu/phylip.html), and this method is assumed here. There are binary versions of Phylip as well as source versions. I downloaded and compiled the source, which worked fine. You're on your own here because I can't guess your system. Read the seqboot.doc document.
+
+Basically, though, if you're running a unix system such as Linux or Darwin (Mac OS X) you can just type "seqboot", assuming you have seqboot in your PATH and the "infile" is in the current directory. Follow the on-screen instructions. Seqboot will produce the bootstrap replicates in a file called simply "outfile".
+
+
+--------------------------------------------------
+6. TRANSFORM BOOTSTRAP REPLICATES FOR USE IN PAUP*
+The first step is to edit the supplied file paup.cmds. It contains the commands used when calculating branch lengths in PAUP* for your tree, with each of the separate bootstrap replicates. I have set it up to fit my needs and you might want to change it. Some changes will be necessary for your needs. Items which should be changed in the file are enclosed with ##. The item marked #tree_file_name# should be changed to the name of the tree file which contains the tree you checked in (4) above.
+
+You need Perl to be able to run my scripts. Perl is available for most platforms including Unixes, Windows and Mac OS. You can't double-click on Perl scripts. They are run from a command line (or from within an application in MacPerl). Perl is great and it is free! If you don't have it, get it at: http://www.cpan.org/
+
+Then run the bootfix1.pl script:
+
+bootfix1.pl Phylip_bootstrap_file_name paup_cmds_file_name > new_nexus_file.nex
+
+On Windows, perl scripts can be run by adding "perl" before the above command.
+
+As you can see from the redirection ">" operator, the script will write to standard output (screen) instead of to a file if you omit that part. It is not obvious to me how this would work in MacPerl (Mac OS 8 or 9 only). Mac OS X has the common unix style Perl which is invoked from a terminal.
+
+
+---------------------------------------
+7. RUN THE NEW NEXUS FILE THROUGH PAUP*
+The result of the PAUP* run should be a tree file with a tree block for each boostrap replicate. Every tree should have the same topology but differing branch lengths according to what was estimated using the corresponding bootstrap replicate.
+
+
+-----------------------------------------------------------------------
+   NON-PARAMETRIC RATE SMOOTHING 8-10
+-----------------------------------------------------------------------
+
+------------------------------------------
+8. TRANSFORM TREE FILE TO R8S COMMAND FILE
+If you're doing penalized likelihood (PL), things get more complicated. See (11) below. However, read on anyway because I won't repeat all info there. 
+
+First, here's a description of how to deal with the simple non-parametric rate smoothing (NPRS) case.
+
+8.1 Edit the r8s.nprs.cmds file
+This contains commands needed to run NPRS for each bootstrap tree. As before, items which really need to be changed are marked with ##. You should consider changing other things too, because this file contains a pretty basic setup. New versions of r8s may emerge. Again, be sure to read the r8s manual.
+
+Particularly important is changing the mrca commands which name internal nodes in the tree. This is because some of my later scripts will look for named nodes only in the output files.
+
+
+8.2 Run the bootfix2.pl script
+bootfix2.pl input_bootstrap_treefile_name r8s.nprs.cmds > new-file.r8s
+
+The "input_bootstrap_treefile_name" is the tree file obtained in step (7). As before, the script writes to standard output so redirection is necessary.
+
+
+---------------------------------------
+9. RUN NEW R8S COMMAND FILE THROUGH R8S
+The "new-file.r8s" (or whatever you called it) is executed in r8s:
+
+r8s -b -f new-file.r8s > r8s-nprs.log
+
+In this step, r8s will estimate divergence times for all bootstrap trees and write them to the file "r8s-nprs.log" in this case.
+
+
+---------------------------------------------------
+10. EXTRACT DIVERGENCE TIME ESTIMATES FROM LOG FILE
+
+getages.pl r8s_log_file_name
+(see a recommended alternative below)
+
+This script will scan the log file for named nodes (those named with the mrca command) and print out a summary of the variation (range, mean and standard deviation). If you used the standard setup which fixes the root node to age=1 you might want to calibrate the estimated divergence times:
+
+getages.pl -c r8s_logfile_name calibration_node_name calibration_age
+
+Note that it is possible to use this script to scan a non-bootstrap r8s logfile also. Some may contain a lot of output which can be frustrating to scan through manually. 
+
+An ALTERNATIVE script which is more elaborate is also available. This script will test the botstrap estimates for each node to see if the variation is according to a Normal distribution and calculate standard error and 95% confidence intervals. 
+(Please note that this script uses the Perl module "Statistics::Distributions" which has to be installed prior to running the script. You can get the module at http://cpan.org/modules/by-module/Statistics/. See also http://cpan.org/modules/INSTALL.html.)
+
+Two basic modes are possible for the node_compiler script, without or with calibration as above:
+
+node_compiler.pl r8s_logfile_name
+
+or 
+
+node_compiler.pl r8s_logfile_name calibration_node_name calibration_age
+
+The node_compiler script can do more. Please read the initial info in the script itself.
+
+Note that it is also possible to use the "profile" command in r8s to do something like this. The command files would have to be setup in a different way. 
+
+-----------------------------------------------------------------------
+   PENALIZED LIKELIHOOD 11-15, 10
+-----------------------------------------------------------------------
+
+
+11. WHAT ABOUT CROSS-VALIDATION?
+
+Seems like you need to do a cross-validation for every bootstrap replicate under penalized likelihood. This is still a pretty tedious and partly manual procedure. 
+
+This step is intended to continue after step (7), but be sure to read all under (8-10) first as general background info!
+
+11.1 Edit the r8s.pl.cv.cmds
+Like before, at least change items marked with ## to fit your setup.
+
+11.2 Run the bootfix2.pl script to make a r8s command file
+bootfix2.pl input_bootstrap_treefile_name r8s.pl.cv.cmds > new-cv-file.r8s
+
+The "input_bootstrap_treefile_name" is the one created in step (7).
+
+11.3 Run the new r8s cross-validation file through r8s
+r8s -b -f new-cv-file.r8s > r8s-cv-log-file-name
+
+Now, keep your fingers crossed and hope for the best! If r8s crashes before it is finished with all replicates, it's usually possible to recover and continue until the end. Here's what to do (on Linux): 
+   * Count how many replicates are complete:
+     grep -c Results r8s-cv-log-file-name
+     To be sure that the last replicate isn't screwed up, you should check 
+        the log file end also.
+   * Edit the "new-cv-file.r8s" and remove those first replicates, saving 
+        the rest of the file under a new name "cv-step2.r8s", say.
+   * Run a new r8s-analysis now using your new file:
+        r8s -f cv-step2.r8s >> r8s-cv-log-file-name
+        Note the double redirection ">>" which indicates that this output will
+        be appended to the previous log file.
+   * Repeat until done...
+
+11.4 Run the cv-extract.pl script
+cv-extract.pl r8s-cv-log-file-name
+
+or save the output to a file:
+
+cv-extract.pl r8s-cv-log-file-name > smoothing.values
+
+This rather stupid script will scan through the cross-validation output and attempt (yes, that's right, attempt) to extract the optimal smoothing values for each replicate. Don't trust it too much. Sometimes, the cross-validation runs fail partly or give unexpected low values at the beginning or end of the range. Scan it manually. Be warned. 
+
+Also, keep in mind that the range of tested smoothing levels supplied in the "r8s.pl.cv.cmds" may not be the best for your setup. Change that in (11.1).
+
+Now you should have the smoothing values for every bootstrap replicate...
+
+
+------------------------
+12. EDIT THE r8s.pl.cmds
+
+As before change all the ## marked items, and maybe more to fit your needs. This contains all commands to be executed by r8s in relation to each of the bootstrap trees. Note the line:
+
+set smoothing=###.#; [# Change this for each replicate #]
+
+That needs to be changed i step (14), not here.
+
+
+-----------------------------
+13. CREATE A R8S COMMAND FILE
+You do this by running the bootfix2.pl script similarly as before but with another set of r8s commands.
+
+bootfix2.pl input_bootstrap_treefile_name r8s.pl.cmds > r8s-pl-file.r8s
+
+Note that the "input_bootstrap_treefile_name" is still the file created in step (7) and NOT the one fixed for the cross-validation run.
+
+
+--------------------------------------------------------
+14. ADD THE SMOOTHING VALUES FOR EACH REPLICATE
+This has to be done manually or by using my bootfix3.pl script. Either edit the output file from the previous step and edit the line:
+
+set smoothing=###.#; [# Change this for each replicate #]
+
+Changing ###.# to whatever smoothing value was obtained for that particular bootstrap replicate.
+
+If you want to use my script, it is important that the above line has not been changed in any of the bootstrap replicates. Also, make sure that the smoothing values are in a file created under (11.4). Then run the script:
+
+bootfix3.pl r8s-pl-file.r8s smoothing.values > r8s-pl-file.fixed.r8s
+
+Use the manually edited file - or the "r8s-pl-file.fixed.r8s" file (or what you want to call it) produced by the script in the next step.
+
+Note that there may currently be a good reason for using the script. R8s truncates the smoothing values to two decimals so that low smoothing values become "0.00". The script instead uses the log smoothing to compute a  relevant smoothing value.
+
+------------------------------------------
+15. RUN THE EDITED R8S COMMAND FILE IN R8S
+
+r8s -b -f r8s-pl-file.r8s > r8s-pl.log
+
+This last step is effectively the same as step (9) for NPRS above. When this is finished, perform step (10) like for NPRS. Then it's done.
+
+
+
+

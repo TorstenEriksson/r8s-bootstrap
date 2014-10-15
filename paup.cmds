@@ -1,0 +1,5 @@
+set criterion=likelihood;
+lset basefreq=estimate nst=6 rates=gamma shape=estimate rmat=estimate pinvar=estimate;  
+outgroup #add_your_outgroups_here#;  
+gettrees file=#tree_file_name# unrooted=yes warntree=no ; 
+savetrees format=altnexus  file=#output_boot_tree_file# append=yes root=yes brlens=yes;

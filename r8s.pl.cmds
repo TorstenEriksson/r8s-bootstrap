@@ -1,0 +1,16 @@
+blformat lengths=persite nsites=#### ultrametric=no;
+mrca A #add_two_or_more_taxa_here with_space_in_between#;
+mrca B #and_here_too#;
+mrca C #and_here_too and_so_on for_those_nodes_that_youre_interested_in#;
+prune taxon=#outgroup_taxon#;
+prune taxon=#optional_outgroup_taxon#;
+set num_restarts=5 num_time_guesses=5;
+set rates=gamma;
+set verbose=1;
+collapse;
+fixage taxon=root age=1;
+set smoothing=###.#; [# Change this for each replicate #]
+divtime method=pl algorithm=tn;
+describe plot=chronogram;
+showage;
+cleartrees;

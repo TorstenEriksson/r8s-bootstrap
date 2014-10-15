@@ -1,0 +1,9 @@
+blformat lengths=persite nsites=#### ultrametric=no;
+prune taxon=#outgroup_taxon#;
+set num_restarts=5 num_time_guesses=5;
+set rates=gamma;
+set verbose=0;
+collapse;
+fixage taxon=root age=1;
+divtime method=pl algorithm=tn crossv=yes cvstart=-3 cvinc=0.5 cvnum=14 ;
+cleartrees;
